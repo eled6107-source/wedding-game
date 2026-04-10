@@ -18,7 +18,6 @@ canvas {
     image-rendering: pixelated;
 }
 
-/* UI */
 #ui {
     position: fixed;
     top: 10px;
@@ -105,10 +104,18 @@ let best = localStorage.getItem("best") || 0;
 
 document.getElementById("best").innerText = "Рекорд: " + best;
 
-/* ================= PLAYER ================= */
+/* ================= IMAGE LOAD FIX ================= */
 
 const brideImg = new Image();
 brideImg.src = "bride.png";
+
+let brideLoaded = false;
+
+brideImg.onload = () => {
+    brideLoaded = true;
+};
+
+/* ================= PLAYER ================= */
 
 const bride = {
     x: 80,
@@ -222,7 +229,6 @@ function update(){
             coins++;
             c.collected = true;
 
-            /* лёгкий эффект */
             document.body.classList.add("shake");
             setTimeout(()=>document.body.classList.remove("shake"),100);
         }
@@ -249,30 +255,30 @@ function update(){
 function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    /* фон */
+    /* background */
     ctx.fillStyle = "#111";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    /* город */
+    /* city */
     for(let i=0;i<canvas.width;i+=60){
         let h = 60 + (i % 120);
         ctx.fillStyle = "#222";
         ctx.fillRect(i, ground - h, 40, h);
     }
 
-    /* земля */
+    /* ground */
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, ground, canvas.width, 2);
 
-    /* невеста */
-    if(brideImg.complete){
+    /* bride */
+    if(brideLoaded){
         ctx.drawImage(brideImg, bride.x, bride.y, bride.w, bride.h);
     } else {
         ctx.fillStyle = "#fff";
         ctx.fillRect(bride.x, bride.y, bride.w, bride.h);
     }
 
-    /* препятствия */
+    /* obstacles */
     ctx.fillStyle = "#aaa";
     obstacles.forEach(o => {
         if(o.type === "pit"){
@@ -282,7 +288,7 @@ function draw(){
         }
     });
 
-    /* монеты */
+    /* coins */
     ctx.fillStyle = "#fff";
     coinList.forEach(c => {
         ctx.beginPath();
@@ -324,7 +330,7 @@ function restart(){
     bride.dy = 0;
 }
 
-/* ================= START ================= */
+/* ================= START SCREEN ================= */
 
 document.getElementById("startScreen").addEventListener("click", startGame);
 document.getElementById("startScreen").addEventListener("touchstart", startGame);
