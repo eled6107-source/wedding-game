@@ -3,20 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game</title>
+<title>Свадебный забег</title>
 
 <style>
 body {
     margin: 0;
-    background: black;
     overflow: hidden;
+    background: black;
     font-family: monospace;
 }
 
 canvas {
     display: block;
+    image-rendering: pixelated;
 }
 
+/* UI */
 #ui {
     position: fixed;
     top: 10px;
@@ -26,100 +28,166 @@ canvas {
     justify-content: space-between;
     color: white;
     z-index: 10;
+    text-shadow: 0 0 5px white;
+}
+
+/* START SCREEN */
+#startScreen {
+    position: fixed;
+    inset: 0;
+    background: black;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+}
+
+#startScreen h1 {
+    font-size: 24px;
+}
+
+#startScreen p {
+    opacity: 0.7;
+}
+
+/* shake */
+body.shake {
+    animation: shake 0.15s;
+}
+
+@keyframes shake {
+    0% { transform: translate(0,0); }
+    25% { transform: translate(2px,-2px); }
+    50% { transform: translate(-2px,2px); }
+    75% { transform: translate(2px,2px); }
+    100% { transform: translate(0,0); }
 }
 </style>
 </head>
 
 <body>
 
+<div id="startScreen">
+    <h1>💍 Свадебный забег</h1>
+    <p>Нажми, чтобы начать</p>
+</div>
+
 <div id="ui">
-    <div id="coins">Coins: 0</div>
-    <div id="distance">0 m</div>
+    <div id="coins">Монеты: 0</div>
+    <div id="distance">0 м</div>
+    <div id="best">Рекорд: 0</div>
 </div>
 
 <canvas id="game"></canvas>
 
 <script>
-window.onload = function () {
-
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 function resize(){
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    ground = canvas.height - 80;
 }
-resize();
 window.addEventListener("resize", resize);
+resize();
 
-// STATE
-let gravity = 0.6;
-let speed = 5;
+/* ================= STATE ================= */
+
+let gameStarted = false;
 let gameOver = false;
 
 let coins = 0;
 let distance = 0;
+let best = localStorage.getItem("best") || 0;
 
-// PLAYER
-let bride = {
+document.getElementById("best").innerText = "Рекорд: " + best;
+
+/* ================= PLAYER ================= */
+
+const brideImg = new Image();
+brideImg.src = "bride.png";
+
+const bride = {
     x: 80,
     y: 0,
-    w: 30,
-    h: 30,
+    w: 60,
+    h: 60,
     dy: 0,
     grounded: false
 };
 
-let ground = 0;
+/* ================= WORLD ================= */
 
-function updateGround(){
-    ground = canvas.height - 80;
-}
+let gravity = 0.6;
+let speed = 6;
+let ground;
 
-// OBJECTS
 let obstacles = [];
 let coinList = [];
+let time = 0;
 
-// INPUT
+/* ================= INPUT ================= */
+
+function startGame(){
+    if(!gameStarted){
+        gameStarted = true;
+        document.getElementById("startScreen").style.display = "none";
+        loop();
+    }
+}
+
 function jump(){
+    if(!gameStarted) return startGame();
+
     if(gameOver){
         restart();
         return;
     }
+
     if(bride.grounded){
         bride.dy = -12;
         bride.grounded = false;
+
+        document.body.classList.add("shake");
+        setTimeout(()=>document.body.classList.remove("shake"),150);
     }
 }
 
 window.addEventListener("click", jump);
 window.addEventListener("touchstart", jump);
 
-// SPAWN
+/* ================= SPAWN ================= */
+
 setInterval(() => {
-    if(gameOver) return;
+    if(!gameStarted || gameOver) return;
+
+    let type = ["rock","scooter","pit"][Math.floor(Math.random()*3)];
 
     obstacles.push({
         x: canvas.width,
-        w: 30,
-        h: 30,
-        type: Math.random() > 0.5 ? "rock" : "pit"
+        w: 40,
+        h: 40,
+        type: type
     });
 
     if(Math.random() > 0.4){
         coinList.push({
             x: canvas.width,
-            y: canvas.height - 150,
-            r: 6
+            y: ground - 140,
+            r: 8
         });
     }
-}, 1200);
+}, 1100);
 
-// UPDATE
+/* ================= UPDATE ================= */
+
 function update(){
-    if(gameOver) return;
 
-    updateGround();
+    time += 0.01;
+    speed += 0.002;
 
     bride.dy += gravity;
     bride.y += bride.dy;
@@ -150,31 +218,61 @@ function update(){
         let dx = bride.x - c.x;
         let dy = bride.y - c.y;
 
-        if(Math.sqrt(dx*dx + dy*dy) < 20){
+        if(Math.sqrt(dx*dx + dy*dy) < 25){
             coins++;
             c.collected = true;
+
+            /* лёгкий эффект */
+            document.body.classList.add("shake");
+            setTimeout(()=>document.body.classList.remove("shake"),100);
         }
     });
 
     coinList = coinList.filter(c => !c.collected && c.x > 0);
 
-    distance += 0.1;
+    distance += speed * 0.05;
 
-    document.getElementById("coins").innerText = "Coins: " + coins;
-    document.getElementById("distance").innerText = Math.floor(distance) + " m";
+    if(gameOver){
+        if(distance > best){
+            best = Math.floor(distance);
+            localStorage.setItem("best", best);
+        }
+    }
+
+    document.getElementById("coins").innerText = "Монеты: " + coins;
+    document.getElementById("distance").innerText = Math.floor(distance) + " м";
+    document.getElementById("best").innerText = "Рекорд: " + best;
 }
 
-// DRAW
+/* ================= DRAW ================= */
+
 function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    updateGround();
+    /* фон */
+    ctx.fillStyle = "#111";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 
+    /* город */
+    for(let i=0;i<canvas.width;i+=60){
+        let h = 60 + (i % 120);
+        ctx.fillStyle = "#222";
+        ctx.fillRect(i, ground - h, 40, h);
+    }
+
+    /* земля */
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, ground, canvas.width, 2);
 
-    ctx.fillRect(bride.x, bride.y, bride.w, bride.h);
+    /* невеста */
+    if(brideImg.complete){
+        ctx.drawImage(brideImg, bride.x, bride.y, bride.w, bride.h);
+    } else {
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(bride.x, bride.y, bride.w, bride.h);
+    }
 
+    /* препятствия */
     ctx.fillStyle = "#aaa";
     obstacles.forEach(o => {
         if(o.type === "pit"){
@@ -184,6 +282,7 @@ function draw(){
         }
     });
 
+    /* монеты */
     ctx.fillStyle = "#fff";
     coinList.forEach(c => {
         ctx.beginPath();
@@ -194,30 +293,42 @@ function draw(){
     if(gameOver){
         ctx.fillStyle = "#fff";
         ctx.font = "24px monospace";
-        ctx.fillText("GAME OVER", canvas.width/2 - 70, canvas.height/2);
+        ctx.fillText("ИГРА ОКОНЧЕНА", canvas.width/2 - 90, canvas.height/2);
+        ctx.font = "14px monospace";
+        ctx.fillText("нажми, чтобы перезапустить", canvas.width/2 - 130, canvas.height/2 + 25);
     }
 }
 
-// LOOP
+/* ================= LOOP ================= */
+
 function loop(){
+    if(!gameStarted) return;
     update();
     draw();
     requestAnimationFrame(loop);
 }
 
-loop();
+/* ================= RESTART ================= */
 
 function restart(){
     gameOver = false;
     coins = 0;
     distance = 0;
+    speed = 6;
+    time = 0;
+
     obstacles = [];
     coinList = [];
+
     bride.y = 0;
     bride.dy = 0;
 }
 
-};
+/* ================= START ================= */
+
+document.getElementById("startScreen").addEventListener("click", startGame);
+document.getElementById("startScreen").addEventListener("touchstart", startGame);
+
 </script>
 
 </body>
